@@ -16,6 +16,9 @@ axios.interceptors.request.use(config => {
     console.log(new Date());
     return config
 })
+
+axios.defaults.baseURL = 'https://api.thecatapi.com/v1';
+axios.defaults.headers.common['x-api'] = API_KEY;
 /**
  * 1. Create an async function "initialLoad" that does the following:
  * - Retrieve a list of breeds from the cat API using fetch().
@@ -25,31 +28,27 @@ axios.interceptors.request.use(config => {
  * This function should execute immediately.
  */
 
-
 async function initialLoad() {
   try {
     // send request to cat api
-    const res = await fetch("https://api.thecatapi.com/v1/breeds", {
-        headers: {
-            'x-api-key': API_KEY
-        }
-    });
-    
+    const res = await axios.get("/breeds");
+        // const breeds = await res.json();
+        const breeds = res.data;
 
+        // PART 2
+        // breedSelect.innerHTML = breeds.map(
+        //     (breed) => `<option value = ${breed.id}>${breed.name}</option>`
+        // )
+        // for each instead of map
+        breeds.forEach(breed => { const option = document.createElement("option"); option.value = breed.id; option.textContent = breed.name; breedSelect.appendChild(option); });
 
-    // get the data from the response 
-    const breeds = await res.json();
+        //get the data from the response
+        console.log(breeds);
+        breedSelection(breeds[0].id)
 
-// PART 2: Tasks
-// STEP 1:
-    breedSelect.innerHTML =  breeds.map(
-        (breed) => `<option value = ${breed.id}>${breed.name}</option>`
-    )
-    console.log(breeds);
-    breedSelection()
-  } catch (e) {
-    console.error(e);
-  }
+    } catch (e) {
+        console.error(e)
+    }
 }
 initialLoad();
 
@@ -67,15 +66,37 @@ initialLoad();
  * - Each new selection should clear, re-populate, and restart the Carousel.
  * - Add a call to this function to the end of your initialLoad function above to create the initial carousel.
  */
-async function breedSelection() {
+// Part 2:
+
+breedSelect.addEventListener("change", breedSelection)
+async function breedSelection(breedId) {
+    console.log(breedId);
     try {
+
         const breedId = breedSelect.value
-        const res = await axios.get(`https://api.thecatapi.com/v1/images/search?limit=10&breed_ids=${breedId}`)
-        const imgs = res.data
-        carousel.clear()
+
+        const res = await axios.get(`/images/search`, { params: { breed_ids: breedId, limit: 10 } });
+        infoDump.innerHTML = ""
+        carousel.clear();
+        const imgs = res.data;
+        console.log(imgs);
+        
+        
         imgs.forEach((img) => {
-            carousel.appendCarousel(carousel.createCarouselItem(img.url,"cat image", img.id))
+            carousel.appendCarousel(carousel.createCarouselItem(img.url,"cat image", img.id));
         });
+        const breedInfo = res.data[0]
+        console.log(breedInfo)
+        if (breedInfo) {
+            infoDump.innerHTML = `
+            <h3>${breedInfo.name}</h3>
+            <p><strong>Temperament:</strong>${breedInfo.temperament}</p>
+            <p><strong>Life Span:</strong> ${breedInfo.life_span} years</p>
+            <p>${breedInfo.description}</p> 
+            `} else{
+            infoDump.innerHTML = `<h3>No info</h3>`
+        }
+        carousel.start();
     } catch (error) {
         console.error(error)
     }
@@ -83,7 +104,7 @@ async function breedSelection() {
 /**
  * 3. Fork your own sandbox, creating a new one named "JavaScript Axios Lab."
  */
-
+// done
 /**
  * 4. Change all of your fetch() functions to axios!
  * - axios has already been imported for you within index.js.
@@ -94,22 +115,38 @@ async function breedSelection() {
  *   send it manually with all of your requests! You can also set a default base URL!
  */
 /**
+
+// done
+
  * 5. Add axios interceptors to log the time between request and response to the console.
  * - Hint: you already have access to code that does this!
  * - Add a console.log statement to indicate when requests begin.
  * - As an added challenge, try to do this on your own without referencing the lesson material.
  */
 
+// done
+
 /**
  * 6. Next, we'll create a progress bar to indicate the request is in progress.
  * - The progressBar element has already been created for you.
+ * const progressBar = document.getElementById("progressBar"); (line 9)
+ * In CSS: 
+ *  .progress-bar-top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0%;
+  height: 15px;
+  background-color: green;
+  border-bottom: 1px solid black;
+ }
  *  - You need only to modify its "width" style property to align with the request progress.
  * - In your request interceptor, set the width of the progressBar element to 0%.
  *  - This is to reset the progress with each request.
  * - Research the axios onDownloadProgress config option.
  * - Create a function "updateProgress" that receives a ProgressEvent object.
  *  - Pass this function to the axios onDownloadProgress config option in your event handler.
- * - console.log your ProgressEvent object within updateProgess, and familiarize yourself with its structure.
+ * - console.log your ProgressEvent object within updateProgress, and familiarize yourself with its structure.
  *  - Update the progress of the request using the properties you are given.
  * - Note that we are not downloading a lot of data, so onDownloadProgress will likely only fire
  *   once or twice per request to this API. This is still a concept worth familiarizing yourself
@@ -117,6 +154,19 @@ async function breedSelection() {
  */
 
 /**
+ *
+ // not working yet
+function updateProgressBar(progressPercentage) {
+if (progressPercentage.lengthComputable) {
+    const percentComplete = (progressPercentage.loaded / progressPercentage.total) * 100;
+    progressBar.style.width = `${percentComplete}%`;
+}
+    // const progressBar = document.querySelector('.progress-bar');
+
+    // progressBar.style.width = progressPercentage + "%";
+
+}
+
  * 7. As a final element of progress indication, add the following to your axios interceptors:
  * - In your request interceptor, set the body element's cursor style to "progress."
  * - In your response interceptor, remove the progress cursor style from the body element.
@@ -133,7 +183,14 @@ async function breedSelection() {
  * - You can call this function by clicking on the heart at the top right of any image.
  */
 export async function favourite(imgId) {
-  // your code here
+  try {
+    const res = await axios.post('/favourites', {
+        image_id: imgId,
+    })
+    console.log(res.data)
+  } catch (error) {
+    console.error(error)
+  }
 }
 
 /**
